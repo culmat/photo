@@ -2,6 +2,7 @@ package culmat.photo;
 
 import static java.lang.String.format;
 import static java.nio.file.Files.list;
+import static java.nio.file.Files.walk;
 import static java.util.UUID.randomUUID;
 
 import java.io.File;
@@ -39,11 +40,12 @@ public class Photo implements Consumer<Path> {
 	public static void main(String[] args) throws Exception {
 //		new Photo("input", "output").iterate();
 		new Photo("/Users/matthi/Pictures/Samsung/Camera", "/Volumes/Multimedia/Photos").iterate();
+//		new Photo("/Users/matthi/Pictures/AutoImport", "/Users/matthi/Pictures/___PerDate").iterate();
 		
 	}
 
 	private void iterate() throws IOException {
-		list(input).forEach(this);
+		walk(input).forEach(this);
 	}
 
 	@Override
