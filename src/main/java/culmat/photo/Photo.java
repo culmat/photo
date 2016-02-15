@@ -1,7 +1,5 @@
 package culmat.photo;
 
-import static java.lang.String.format;
-import static java.nio.file.Files.list;
 import static java.nio.file.Files.walk;
 import static java.util.UUID.randomUUID;
 
@@ -22,26 +20,54 @@ import java.util.function.Consumer;
 
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.spi.BooleanOptionHandler;
+
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.Tag;
+import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 
 public class Photo implements Consumer<Path> {
 
-	private final Path input;
-	private final Path output;
+	private Path input;
+	private Path output;
 
-	public Photo(String input, String output) {
-		this.input = Paths.get(input);
-		this.output = Paths.get(output);
+	@Option(name="-dest")        
+    private String outputParam = "/Volumes/Multimedia/Photos";
+	@Option(name="-source")        
+	private String sourceParam = ".";
+	@Option(name="-symlink",handler=BooleanOptionHandler.class)
+	private boolean symlink;
+	
+	public Photo init() throws FileNotFoundException {
+		this.input = Paths.get(sourceParam);
+		this.output = Paths.get(outputParam);
+		if(!this.output.toFile().exists()) {
+			throw new FileNotFoundException(outputParam);
+		}
+		return this;
 	}
 
 	public static void main(String[] args) throws Exception {
-//		new Photo("input", "output").iterate();
-		new Photo("/Users/matthi/Pictures/Samsung/Camera", "/Volumes/Multimedia/Photos").iterate();
-//		new Photo("/Users/matthi/Pictures/AutoImport", "/Users/matthi/Pictures/___PerDate").iterate();
-		
+		Photo photo = new Photo();
+		CmdLineParser parser = new CmdLineParser(photo);
+		try {
+            parser.parseArgument(args);
+        } catch( CmdLineException e ) {
+            System.err.println(e.getMessage());
+            System.err.println("Photo [options...] arguments...");
+            parser.printUsage(System.err);
+            System.err.println();
+            return;
+        }
+
+		photo.init().iterate();
 	}
 
 	private void iterate() throws IOException {
@@ -59,11 +85,20 @@ public class Photo implements Consumer<Path> {
 			}
 			System.out.println(path);
 			Metadata metadata = ImageMetadataReader.readMetadata(Files.newInputStream(path));
-			ExifSubIFDDirectory dic = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-			Date date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
+			Date date = getDateTagSubIFD(metadata);
+			if(date == null) date = getDateTagIFD0(metadata);
 			String targetDir = DateHelper.getPath(date);
 			output.resolve(targetDir).getParent().toFile().mkdirs();
-			Files.move(path,checkAndAdapt(path,output.resolve(targetDir+extension)));
+			Path dest = null;
+			try {
+				dest = checkAndAdapt(path,output.resolve(targetDir+extension));
+				Files.move(path,dest);
+			} catch (EqualException e) {
+				System.out.println(e.dest +" already exists");
+				e.source.toFile().delete();
+				dest = e.dest;
+			}
+			if(symlink) Files.createSymbolicLink(path , dest);
 
 		} catch (IOException | ImageProcessingException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
@@ -71,12 +106,44 @@ public class Photo implements Consumer<Path> {
 
 	}
 
+	private Date getDateTagIFD0(Metadata metadata) {
+		ExifIFD0Directory dic = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+		Date date = dic.getDate(ExifIFD0Directory.TAG_DATETIME_ORIGINAL);
+		if(date != null) return date;
+		date = dic.getDate(ExifIFD0Directory.TAG_DATETIME);
+		if(date != null) return date;
+		date =  dic.getDate(ExifIFD0Directory.TAG_DATETIME_DIGITIZED);
+		return date;
+	}
+
+	public Date getDateTagSubIFD(Metadata metadata) {
+		ExifSubIFDDirectory dic = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+		Date date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
+		if(date != null) return date;
+		date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME);
+		if(date != null) return date;
+		date =  dic.getDate(ExifSubIFDDirectory.TAG_DATETIME_DIGITIZED);
+		return date;
+	}
+
+	private void dump(Metadata metadata) {
+		for (Directory directory : metadata.getDirectories()) {
+		    dump(directory);
+		}
+	}
+
+	public void dump(Directory directory) {
+		for (Tag tag : directory.getTags()) {
+		    System.out.println(tag);
+		}
+	}
+
 	private Path checkAndAdapt(Path source, Path dest) throws NoSuchAlgorithmException, IOException {
 		return dest.toFile().exists() && unequal(source, dest)? adapt(dest) : dest;
 	}
 
 	private boolean unequal(Path source, Path dest) throws IOException, NoSuchAlgorithmException {
-		if(calcSHA1(source.toFile()).equals(calcSHA1(dest.toFile()))) throw new IOException(format("File %s and %s are equal", source, dest));
+		if(calcSHA1(source.toFile()).equals(calcSHA1(dest.toFile()))) throw new EqualException(source, dest);
 		return true;
 	}
 
