@@ -1,5 +1,6 @@
 package culmat.photo;
 
+import static java.nio.file.Files.isSymbolicLink;
 import static java.nio.file.Files.walk;
 import static java.util.UUID.randomUUID;
 
@@ -92,10 +93,11 @@ public class Photo implements Consumer<Path> {
 			Path dest = null;
 			try {
 				dest = checkAndAdapt(path,output.resolve(targetDir+extension));
+				path = resolveSymbolicLink(path);
 				Files.move(path,dest);
 			} catch (EqualException e) {
 				System.out.println(e.dest +" already exists");
-				e.source.toFile().delete();
+				resolveSymbolicLink(e.source).toFile().delete();
 				dest = e.dest;
 			}
 			if(symlink) Files.createSymbolicLink(path , dest);
@@ -104,6 +106,15 @@ public class Photo implements Consumer<Path> {
 			e.printStackTrace();
 		}
 
+	}
+
+	public Path resolveSymbolicLink(Path path) throws IOException {
+		if(isSymbolicLink(path)) {
+			Path linkTarget = Files.readSymbolicLink(path);
+			path.toFile().delete();
+			path = linkTarget;
+		}
+		return path;
 	}
 
 	private Date getDateTagIFD0(Metadata metadata) {
