@@ -4,22 +4,16 @@ import static java.nio.file.Files.isSymbolicLink;
 import static java.nio.file.Files.walk;
 import static java.util.UUID.randomUUID;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
-
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -38,7 +32,8 @@ public class Photo implements Consumer<Path> {
 
 	private Path input;
 	private Path output;
-
+	private transient Checksum checksum = new Checksum() {};
+	
 	@Option(name="-dest")        
     private String outputParam = "/Volumes/Multimedia/Photos";
 	@Option(name="-source")        
@@ -154,25 +149,8 @@ public class Photo implements Consumer<Path> {
 	}
 
 	private boolean unequal(Path source, Path dest) throws IOException, NoSuchAlgorithmException {
-		if(calcSHA1(source.toFile()).equals(calcSHA1(dest.toFile()))) throw new EqualException(source, dest);
+		if(checksum.calcSHA1(source.toFile()).equals(checksum.calcSHA1(dest.toFile()))) throw new EqualException(source, dest);
 		return true;
-	}
-
-	private static String calcSHA1(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
-
-		MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-		try (InputStream input = new FileInputStream(file)) {
-
-			byte[] buffer = new byte[8192];
-			int len = input.read(buffer);
-
-			while (len != -1) {
-				sha1.update(buffer, 0, len);
-				len = input.read(buffer);
-			}
-
-			return new HexBinaryAdapter().marshal(sha1.digest());
-		}
 	}
 
 	private Path adapt(Path path) {
