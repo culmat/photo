@@ -29,7 +29,7 @@ import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 
 public class Photo implements Consumer<Path> {
-
+	// mdls SIMG0054.JPG  | grep reat
 	private Path input;
 	private Path output;
 	private transient Checksum checksum = new Checksum() {};
@@ -75,7 +75,7 @@ public class Photo implements Consumer<Path> {
 		try {
 			List<String> extensions = Arrays.asList(".jpg", ".nef", ".jpeg");
 			String extension = getExtension(path);
-			if(!extensions.contains(extension.toLowerCase())) {
+			if(path.getFileName().startsWith("._") ||!extensions.contains(extension.toLowerCase())) {
 				System.out.println("Ignoring " + path);
 				return;
 			}
