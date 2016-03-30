@@ -10,10 +10,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -83,6 +87,7 @@ public class Photo implements Consumer<Path> {
 			Metadata metadata = ImageMetadataReader.readMetadata(Files.newInputStream(path));
 			Date date = getDateTagSubIFD(metadata);
 			if(date == null) date = getDateTagIFD0(metadata);
+			date = getDateFromFileName(path.getFileName().toString());
 			String targetDir = DateHelper.getPath(date);
 			output.resolve(targetDir).getParent().toFile().mkdirs();
 			Path dest = null;
@@ -103,6 +108,22 @@ public class Photo implements Consumer<Path> {
 
 	}
 
+	Date getDateFromFileName(String string) {
+		Pattern pattern = Pattern.compile("(\\d{8}(\\D)\\d{6})\\.\\w+");
+		Matcher matcher = pattern.matcher(string);
+		if(matcher.find()) {
+			String group = matcher.group(1);
+			try {
+				return new SimpleDateFormat("yyyyMMdd"+matcher.group(2)+"HHmmss").parse(group);
+			} catch (ParseException e) {
+				e.printStackTrace();
+				return null;
+			}
+		}
+		
+		return null;
+	}
+
 	public Path resolveSymbolicLink(Path path) throws IOException {
 		if(isSymbolicLink(path)) {
 			Path linkTarget = Files.readSymbolicLink(path);
@@ -114,6 +135,7 @@ public class Photo implements Consumer<Path> {
 
 	private Date getDateTagIFD0(Metadata metadata) {
 		ExifIFD0Directory dic = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+		if(dic == null) return null;
 		Date date = dic.getDate(ExifIFD0Directory.TAG_DATETIME_ORIGINAL);
 		if(date != null) return date;
 		date = dic.getDate(ExifIFD0Directory.TAG_DATETIME);
@@ -124,6 +146,7 @@ public class Photo implements Consumer<Path> {
 
 	public Date getDateTagSubIFD(Metadata metadata) {
 		ExifSubIFDDirectory dic = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+		if(dic == null) return null;
 		Date date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
 		if(date != null) return date;
 		date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME);
