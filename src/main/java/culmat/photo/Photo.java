@@ -84,6 +84,7 @@ public class Photo implements Consumer<Path> {
 	@Override
 	public void accept(Path path) {
 		try {
+			if(path.toFile().isDirectory()) return;
 			String extension = getExtension(path);
 			if (path.getFileName().startsWith("._") || !extensions.contains(extension.toLowerCase())) {
 				System.out.println("Ignoring " + path);
