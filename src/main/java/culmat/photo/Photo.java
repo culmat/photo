@@ -17,8 +17,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -38,8 +36,7 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 public class Photo implements Consumer<Path> {
 	// mdls SIMG0054.JPG | grep reat
 
-	private transient Checksum checksum = new Checksum() {
-	};
+	private transient Checksum checksum = new Checksum() {};
 
 	@Option(name = "-dest", handler = PathOptionHandler.class)
 	private Path output = Paths.get("./photos-ordered/");
@@ -49,6 +46,7 @@ public class Photo implements Consumer<Path> {
 	private boolean symlink;
 	@Option(name = "-dryrun", handler = BooleanOptionHandler.class)
 	private boolean dryrun;
+	List<String> extensions = Arrays.asList(".jpg", ".nef", ".jpeg");
 
 	public Photo checkParams() throws FileNotFoundException {
 		checkPathExists(input);
@@ -81,11 +79,11 @@ public class Photo implements Consumer<Path> {
 	private void iterate() throws IOException {
 		walk(input).forEach(this);
 	}
+	
 
 	@Override
 	public void accept(Path path) {
 		try {
-			List<String> extensions = Arrays.asList(".jpg", ".nef", ".jpeg");
 			String extension = getExtension(path);
 			if (path.getFileName().startsWith("._") || !extensions.contains(extension.toLowerCase())) {
 				System.out.println("Ignoring " + path);
