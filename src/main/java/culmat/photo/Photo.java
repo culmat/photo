@@ -216,7 +216,10 @@ public class Photo implements Consumer<Path> {
 	}
 
 	private boolean unequal(Path source, Path dest) throws IOException, NoSuchAlgorithmException {
-		if (checksum.calcSHA1(source.toFile()).equals(checksum.calcSHA1(dest.toFile())))
+		if (Arrays.equals(
+				checksum.calcSHA1(source.toFile()),
+				checksum.calcSHA1(  dest.toFile())
+				))
 			throw new EqualException(source, dest);
 		return true;
 	}

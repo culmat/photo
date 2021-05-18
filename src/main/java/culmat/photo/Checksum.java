@@ -8,10 +8,8 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
-
 public interface Checksum {
-	default String calcSHA1(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+	default byte[] calcSHA1(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
 
 		MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
 		try (InputStream input = new FileInputStream(file)) {
@@ -24,7 +22,7 @@ public interface Checksum {
 				len = input.read(buffer);
 			}
 
-			return new HexBinaryAdapter().marshal(sha1.digest());
+			return sha1.digest();
 		}
 	}
 }
