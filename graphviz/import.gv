@@ -1,30 +1,26 @@
-digraph structs {
-ranksep = "1.25";
-rankdir = "LR";
-peripheries = "0";
-fontname = "Verdana";
-fontsize = "10";
-bgcolor = "transparent";
-rankdir = "TD";
-"Import from camera" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightblue", label = "Import from camera"];
-"Create temporary local disk" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightgrey", label = "Create temporary local disk"];
-"Check remote for duplicates" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightgrey", label = "Check remote for duplicates"];
-"Display Overview" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightblue", label = "Display Overview"];
-  "Import from camera" -> "Create temporary local disk" [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-  "Create temporary local disk" -> "Check remote for duplicates" [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-  "Check remote for duplicates" -> "Display Overview" [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-"Import from directory" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightblue", label = "Import from directory"];
-  "Import from directory" -> "Create temporary local disk" [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-Delete [shape = "record", margin = ".2", style = "filled", fillcolor = "lightblue", label = "Delete"];
-  "Display Overview" -> Delete [dir = "both", arrowtail = "vee", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-Edit [shape = "record", margin = ".2", style = "filled", fillcolor = "lightblue", label = "Edit"];
-  "Display Overview" -> Edit [dir = "both", arrowtail = "vee", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-OK [shape = "record", margin = ".2", style = "filled", fillcolor = "palegreen", label = "OK"];
-"Delete temporary local disk" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightgrey", label = "Delete temporary local disk"];
-"Write to remote" [shape = "record", margin = ".2", style = "filled", fillcolor = "lightgrey", label = "Write to remote"];
-  "Display Overview" -> OK [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-  OK -> "Delete temporary local disk" [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-  "Delete temporary local disk" -> "Write to remote" [dir = "both", arrowtail = "none", arrowhead = "vee", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true"];
-"added as Derivative or Original" [shape = "note", margin = ".2", style = "filled", fillcolor = "wheat", label = "added as Derivative or Original"];
-  Edit -> "added as Derivative or Original" [dir = "both", arrowtail = "none", arrowhead = "none", arrowsize = "1.0", minlen = "1.0", labelangle = "20", labeldistance = "2", labelfloat = "true", style = "dashed"];
+digraph G {
+  rankdir=TB
+  bgcolor = "transparent"
+  ranksep = "1.2"
+  node [fontname = "Sans", shape = "record", margin = ".4"]
+  n1 [label = "Import from camera",fillcolor=lightblue,style = "filled"]
+  n2 [label = "Import from directory",fillcolor=lightblue,style = "filled"]
+  n3 [label="Create \n temporary local disk"]
+  n4 [label="Check remote for duplicates"]
+  n5 [label = "Display overview",fillcolor=lightblue,style = "filled"]
+  n6 [label = "Delete",fillcolor=lightblue,style = "filled"]
+  n7 [label = "Edit",fillcolor=lightblue,style = "filled"]
+  n8 [label = "OK",fillcolor=palegreen,style = "filled"]
+  n9 [label = "Delete \n temporary local disk"]
+  n10 [label = "Write to remote"]
+  z1 [label = "added as \n Derivative or Original", shape = "note",  style = "filled", fillcolor = "wheat"]
+  n1 -> n3 -> n4 -> n5
+  n2 -> n3
+  n5 -> n6 [dir = "both"]
+  n5 -> n7 [dir = "both"]
+  n5 -> n8 [dir = "both"]
+  n8 -> n9 -> n10
+  n7 -> z1 [arrowhead = "none", style = "dashed"]
+  
 }
+
