@@ -29,7 +29,6 @@ jobs:
        - name: Site
          uses: JamesIves/github-pages-deploy-action@4.1.3
          with:
-           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-           BRANCH: gh-pages 
-           FOLDER: target/graphviz
-           TARGET_FOLDER: graphviz
+           branch: gh-pages 
+           folder: target/graphviz
+           target-folder: graphviz
