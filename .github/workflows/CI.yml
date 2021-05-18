@@ -19,8 +19,8 @@ jobs:
              ${{ runner.os }}-maven-
        - name: Maven
          run: mvn --no-transfer-progress clean test
+       - uses: ts-graphviz/setup-graphviz@v1
        - name: Graphviz
-         uses: ts-graphviz/setup-graphviz@v1
          run: dot -Tsvg -O graphviz/*.gv && mkdir -p target/graphviz && mv graphviz/*.svg target/graphviz/
        - name: Site
          uses: JamesIves/github-pages-deploy-action@4.1.3
@@ -29,4 +29,3 @@ jobs:
            BRANCH: gh-pages 
            FOLDER: target/graphviz
            TARGET_FOLDER: graphviz
-
