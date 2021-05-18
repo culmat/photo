@@ -19,8 +19,8 @@ jobs:
              ${{ runner.os }}-maven-
        - uses: actions/setup-java@v2
          with:
-         distribution: 'adopt'
-         java-version: '16'
+           distribution: 'adopt'
+           java-version: '16'
        - name: Maven
          run: mvn --no-transfer-progress clean test
        - uses: ts-graphviz/setup-graphviz@v1
