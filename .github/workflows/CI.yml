@@ -1,0 +1,33 @@
+name: CI
+
+on:
+   push:
+     branches:
+       - 'master'
+
+jobs:
+   build:
+     runs-on: ubuntu-latest
+     steps:
+       - name: Checkout
+         uses: actions/checkout@master
+       - uses: actions/cache@v1
+         with: 
+           path: ~/.m2/repository
+           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+           restore-keys: |
+             ${{ runner.os }}-maven-
+       - name: Maven
+         run: mvn --no-transfer-progress clean test
+       - name: Graphviz
+         uses: ts-graphviz/setup-graphviz@v1
+         run: dot -Tsvg -O graphviz/*.gv && mkdir -p target/graphviz && mv graphviz/*.svg target/graphviz/
+       - name: Site
+         uses: JamesIves/github-pages-deploy-action@4.1.3
+         with:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+           BRANCH: gh-pages 
+           FOLDER: target/graphviz
+           TARGET_FOLDER: graphviz
+           
+           
