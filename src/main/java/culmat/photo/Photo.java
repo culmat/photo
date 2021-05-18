@@ -84,6 +84,10 @@ public class Photo implements Consumer<Path> {
 	@Override
 	public void accept(Path path) {
 		try {
+			if(path.startsWith(output)) {
+				System.out.println("Skipping output directory "+output.toAbsolutePath().normalize());
+				return;
+			}
 			if(path.toFile().isDirectory()) return;
 			String extension = getExtension(path);
 			if (path.getFileName().startsWith("._") || !extensions.contains(extension.toLowerCase())) {
@@ -99,6 +103,7 @@ public class Photo implements Consumer<Path> {
 				date = getDateFromFileName(path.getFileName().toString());
 			if(date == null) {
 				System.err.println("could not determine date. skipping");
+				return;
 			}
 			String targetDir = DateHelper.getPath(date);
 			mkdirs(output.resolve(targetDir).getParent());
@@ -151,7 +156,7 @@ public class Photo implements Consumer<Path> {
 		try {
 			return new SimpleDateFormat("yyyyMMddHHmmss").parse(string);
 		} catch (ParseException e) {
-			e.printStackTrace();
+			e.getMessage();
 			return null;
 		}
 	}
