@@ -29,5 +29,3 @@ jobs:
            BRANCH: gh-pages 
            FOLDER: target/graphviz
            TARGET_FOLDER: graphviz
-           
-           
