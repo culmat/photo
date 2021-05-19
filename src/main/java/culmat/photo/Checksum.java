@@ -1,28 +1,40 @@
 package culmat.photo;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
-public interface Checksum {
-	default byte[] calcSHA1(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+import javax.imageio.ImageIO;
 
-		MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-		try (InputStream input = new FileInputStream(file)) {
+import org.apache.commons.codec.digest.DigestUtils;
 
-			byte[] buffer = new byte[8192];
-			int len = input.read(buffer);
+public class Checksum {
 
-			while (len != -1) {
-				sha1.update(buffer, 0, len);
-				len = input.read(buffer);
-			}
-
-			return sha1.digest();
+	public static String hash(Path path) throws IOException {
+		switch (Photo.getExtension(path)) {
+		case "dng":
+		case "nef":
+			Process proc = new ProcessBuilder("dcraw", "-d", "-j", "-t", "0,", "-c",
+					path.toAbsolutePath().normalize().toString()).start();
+			final List<String> sha = new ArrayList<>(1);
+			new Thread(() -> {
+				try {
+					sha.add(DigestUtils.sha1Hex(proc.getInputStream()));
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}).run();
+			try {
+				proc.waitFor();
+			} catch (InterruptedException letsgo) {}
+			return sha.get(0);
+		default:
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			ImageIO.write(ImageIO.read(path.toFile()), "bmp", baos);
+			return DigestUtils.sha1Hex(baos.toByteArray());
 		}
 	}
+
 }

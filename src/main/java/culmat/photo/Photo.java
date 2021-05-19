@@ -3,16 +3,12 @@ package culmat.photo;
 import static java.lang.String.format;
 import static java.nio.file.Files.isSymbolicLink;
 import static java.nio.file.Files.walk;
-import static java.util.UUID.randomUUID;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -25,18 +21,10 @@ import org.kohsuke.args4j.spi.BooleanOptionHandler;
 import org.kohsuke.args4j.spi.FileOptionHandler;
 import org.kohsuke.args4j.spi.PathOptionHandler;
 
-import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.Directory;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.Tag;
-import com.drew.metadata.exif.ExifIFD0Directory;
-import com.drew.metadata.exif.ExifSubIFDDirectory;
 
 public class Photo implements Consumer<Path> {
 	// mdls SIMG0054.JPG | grep reat
-
-	private transient Checksum checksum = new Checksum() {};
 
 	@Option(name = "-dest", handler = PathOptionHandler.class)
 	private Path output = Paths.get("./photos-ordered/");
@@ -46,7 +34,7 @@ public class Photo implements Consumer<Path> {
 	private boolean symlink;
 	@Option(name = "-dryrun", handler = BooleanOptionHandler.class)
 	private boolean dryrun;
-	List<String> extensions = Arrays.asList(".jpg", ".nef", ".jpeg");
+	List<String> extensions = Arrays.asList("jpg", "nef", "jpeg");
 
 	public Photo checkParams() throws FileNotFoundException {
 		checkPathExists(input);
@@ -72,7 +60,6 @@ public class Photo implements Consumer<Path> {
 			System.err.println();
 			return;
 		}
-
 		photo.checkParams().iterate();
 	}
 
@@ -84,43 +71,45 @@ public class Photo implements Consumer<Path> {
 	@Override
 	public void accept(Path path) {
 		try {
+			if(path.toString().toLowerCase().contains("thumb")) {
+				System.out.println("Skipping thumb "+path.toAbsolutePath().normalize());
+				return;
+			}
 			if(path.startsWith(output)) {
 				System.out.println("Skipping output directory "+output.toAbsolutePath().normalize());
 				return;
 			}
 			if(path.toFile().isDirectory()) return;
 			String extension = getExtension(path);
-			if (path.getFileName().startsWith("._") || !extensions.contains(extension.toLowerCase())) {
+			if (path.getFileName().startsWith("._") || !extensions.contains(extension)) {
 				System.out.println("Ignoring " + path);
 				return;
 			}
 			System.out.println(path);
-			Metadata metadata = ImageMetadataReader.readMetadata(Files.newInputStream(path));
-			Date date = getDateTagSubIFD(metadata);
-			if (date == null)
-				date = getDateTagIFD0(metadata);
-			if (date == null)
-				date = getDateFromFileName(path.getFileName().toString());
+			Date date = Meta.getDate(path);
 			if(date == null) {
-				System.err.println("could not determine date. skipping");
+				System.err.println("Could not determine date. skipping");
 				return;
 			}
-			String targetDir = DateHelper.getPath(date);
-			mkdirs(output.resolve(targetDir).getParent());
-			Path dest = null;
-			try {
-				dest = checkAndAdapt(path, output.resolve(targetDir + extension));
-				path = resolveSymbolicLink(path);
+
+			Path dest = output.resolve(DateHelper.getPath(date) + extension);
+			mkdirs(dest.getParent());
+			path = resolveSymbolicLink(path);
+			String hash = Checksum.hash(path);
+			Path hashPath = output.resolve("_hashes/"+hash.substring(0, 2)+"/"+hash);
+			if(hashPath.toFile().exists()) {
+				System.out.println(hashPath + " exists pointing to " + Files.readString(hashPath));
+				delete(path);
+			} else {
+				dest = adapt(dest);
 				move(path, dest);
-			} catch (EqualException e) {
-				System.out.println(e.dest + " already exists");
-				delete(resolveSymbolicLink(e.source));
-				dest = e.dest;
+				mkdirs(hashPath.getParent());
+				Files.writeString(hashPath,dest.toString().replace(output.toString(),""));
 			}
 			if (symlink)
 				Files.createSymbolicLink(path, dest);
 
-		} catch (IOException | ImageProcessingException | NoSuchAlgorithmException e) {
+		} catch (IOException | ImageProcessingException  e) {
 			e.printStackTrace();
 		}
 
@@ -128,10 +117,10 @@ public class Photo implements Consumer<Path> {
 
 	private void move(Path source, Path target) throws IOException {
 		if (dryrun) {
-			System.out.println(format("dryrun: moving %s to %s", source, target));
-		} else {
-			Files.move(source, target);
-		}
+			System.out.print("dryrun: ");
+		} 
+		System.out.println(format("moving %s to %s", source, target));
+	    Files.move(source, target);
 	}
 	
 	private void mkdirs(Path path) throws IOException {
@@ -150,17 +139,6 @@ public class Photo implements Consumer<Path> {
 		}
 	}
 
-	Date getDateFromFileName(String string) {
-		string = string.replaceAll("\\D+", "");
-		string = string.substring(0, Math.min(string.length(), 14));
-		try {
-			return new SimpleDateFormat("yyyyMMddHHmmss").parse(string);
-		} catch (ParseException e) {
-			e.getMessage();
-			return null;
-		}
-	}
-
 	public Path resolveSymbolicLink(Path path) throws IOException {
 		if (isSymbolicLink(path)) {
 			Path linkTarget = Files.readSymbolicLink(path);
@@ -171,68 +149,24 @@ public class Photo implements Consumer<Path> {
 	}
 
 
-	private Date getDateTagIFD0(Metadata metadata) {
-		ExifIFD0Directory dic = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-		if (dic == null)
-			return null;
-		Date date = dic.getDate(ExifIFD0Directory.TAG_DATETIME_ORIGINAL);
-		if (date != null)
-			return date;
-		date = dic.getDate(ExifIFD0Directory.TAG_DATETIME);
-		if (date != null)
-			return date;
-		date = dic.getDate(ExifIFD0Directory.TAG_DATETIME_DIGITIZED);
-		return date;
+	/**
+	 * @param path
+	 * @return
+	 */
+	static Path adapt(Path path) {
+		final String extension = getExtension(path);
+		final String pathString = path.toString();
+		final String trunc = pathString.substring(0, pathString.length()- extension.length()-1);
+		int i = 1;
+		while (path.toFile().exists()) {
+			path = Paths.get(trunc + "_" + (i++) + "."+ extension);
+		} 
+		return path;
 	}
 
-	public Date getDateTagSubIFD(Metadata metadata) {
-		ExifSubIFDDirectory dic = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-		if (dic == null)
-			return null;
-		Date date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
-		if (date != null)
-			return date;
-		date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME);
-		if (date != null)
-			return date;
-		date = dic.getDate(ExifSubIFDDirectory.TAG_DATETIME_DIGITIZED);
-		return date;
-	}
-
-	private void dump(Metadata metadata) {
-		for (Directory directory : metadata.getDirectories()) {
-			dump(directory);
-		}
-	}
-
-	public void dump(Directory directory) {
-		for (Tag tag : directory.getTags()) {
-			System.out.println(tag);
-		}
-	}
-
-	private Path checkAndAdapt(Path source, Path dest) throws NoSuchAlgorithmException, IOException {
-		return dest.toFile().exists() && unequal(source, dest) ? adapt(dest) : dest;
-	}
-
-	private boolean unequal(Path source, Path dest) throws IOException, NoSuchAlgorithmException {
-		if (Arrays.equals(
-				checksum.calcSHA1(source.toFile()),
-				checksum.calcSHA1(  dest.toFile())
-				))
-			throw new EqualException(source, dest);
-		return true;
-	}
-
-	private Path adapt(Path path) {
-		String extension = getExtension(path);
-		return Paths.get(path.toString().replace(extension, "_" + randomUUID() + extension));
-	}
-
-	private String getExtension(Path path) {
+	public static String getExtension(Path path) {
 		String fileName = path.toString();
 		int i = fileName.lastIndexOf('.');
-		return i > 0 ? fileName.substring(i) : "";
+		return i > 0 ? fileName.substring(i+1).toLowerCase() : "";
 	}
-
 }
