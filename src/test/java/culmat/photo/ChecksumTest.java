@@ -14,11 +14,12 @@ public class ChecksumTest {
 		}
 		@Test
 		public void testHashNEF() throws Exception {
+			if(!Checksum.HAS_DCRAW) return;
 			assertEquals("4d1bc98fee340b165bcfe5fa60926039b905cbae", hash(get("src/test/resources/_MM03592.NEF")));
 		}
 		@Test
 		public void testHashDNG() throws Exception {
+			if(!Checksum.HAS_DCRAW) return;
 			assertEquals("19d24ac8a9c4b0756d2182531a93f90610e00834", hash(get("src/test/resources/20190824_191924.dng")));
 		}
-
 }

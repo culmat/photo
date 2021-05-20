@@ -9,9 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.function.Consumer;
 
 import org.kohsuke.args4j.CmdLineException;
@@ -34,7 +32,6 @@ public class Photo implements Consumer<Path> {
 	private boolean symlink;
 	@Option(name = "-dryrun", handler = BooleanOptionHandler.class)
 	private boolean dryrun;
-	List<String> extensions = Arrays.asList("jpg", "nef", "jpeg");
 
 	public Photo checkParams() throws FileNotFoundException {
 		checkPathExists(input);
@@ -81,7 +78,7 @@ public class Photo implements Consumer<Path> {
 			}
 			if(path.toFile().isDirectory()) return;
 			String extension = getExtension(path);
-			if (path.getFileName().startsWith("._") || !extensions.contains(extension)) {
+			if (path.getFileName().startsWith("._") || !Checksum.EXTENSIONS.contains(extension)) {
 				System.out.println("Ignoring " + path);
 				return;
 			}

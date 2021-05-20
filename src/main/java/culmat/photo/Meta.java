@@ -18,6 +18,8 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 
 public class Meta {
 
+	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmmss");
+
 	public Meta() {
 		// TODO Auto-generated constructor stub
 	}
@@ -33,15 +35,19 @@ public class Meta {
 		return date;
 	}
 
-	public static Date getDateFromFileName(String string) {
-		string = string.replaceAll("\\D+", "");
-		string = string.substring(0, Math.min(string.length(), 14));
+	public static Date getDateFromFileName(final String string) {
 		try {
-			return new SimpleDateFormat("yyyyMMddHHmmss").parse(string);
+			return DATE_FORMAT.parse(extractDateString(string));
 		} catch (ParseException e) {
 			e.getMessage();
 			return null;
 		}
+	}
+
+	public static String extractDateString(String string) {
+		return string.
+				replaceAll("\\D+", "").
+				substring(0, Math.min(string.length(), 14));
 	}
 
 	public static Date getDateTagIFD0(Metadata metadata) {
