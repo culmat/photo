@@ -25,9 +25,9 @@ public class MetaTest {
 	
 	@Test
 	public void meta() throws Exception {
-		assertDate("20160327150645",getDate(get("src/test/resources/_MM03592.jpg")));
-		assertDate("20160327150645",getDate(get("src/test/resources/_MM03592.NEF")));
-		assertDate("20190824211924",getDate(get("src/test/resources/20190824_191924.dng")));
+		assertEquals("27 Mar 2016 13:06:45 GMT",getDate(get("src/test/resources/_MM03592.jpg")).toGMTString());
+		assertEquals("27 Mar 2016 13:06:45 GMT",getDate(get("src/test/resources/_MM03592.NEF")).toGMTString());
+		assertEquals("24 Aug 2019 19:19:24 GMT",getDate(get("src/test/resources/20190824_191924.dng")).toGMTString());
 	}
 
 }
