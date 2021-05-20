@@ -1,18 +1,22 @@
 package culmat.photo;
 
 import static java.util.Arrays.asList;
+import static org.apache.commons.codec.digest.DigestUtils.sha1Hex;
+import static org.apache.commons.imaging.Imaging.getBufferedImage;
+import static org.apache.commons.imaging.Imaging.writeImageToBytes;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import javax.imageio.ImageIO;
-
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.imaging.ImageFormats;
+import org.apache.commons.imaging.ImageReadException;
+import org.apache.commons.imaging.ImageWriteException;
 
 public class Checksum {
 
@@ -20,7 +24,7 @@ public class Checksum {
 	
 	private static boolean hasDCRaw() {
 		try {
-			int exitcode = new ProcessBuilder("dcraw2").start().waitFor();
+			int exitcode = new ProcessBuilder("dcraw").start().waitFor();
 			if(exitcode == 1) {
 				System.out.println("dcraw detected");
 				EXTENSIONS.addAll(asList("dng", "nef"));
@@ -58,9 +62,11 @@ public class Checksum {
 			} catch (InterruptedException letsgo) {}
 			return sha.get(0);
 		default:
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			ImageIO.write(ImageIO.read(path.toFile()), "bmp", baos);
-			return DigestUtils.sha1Hex(baos.toByteArray());
+			try {
+				return sha1Hex(writeImageToBytes(getBufferedImage(path.toFile()), ImageFormats.BMP, new HashMap<>()));
+			} catch (ImageWriteException | ImageReadException e) {
+				throw new IOException(e);
+			}
 		}
 	}
 

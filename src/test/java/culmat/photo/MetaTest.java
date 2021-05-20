@@ -5,6 +5,7 @@ import static culmat.photo.Meta.getDateFromFileName;
 import static java.nio.file.Paths.get;
 import static org.junit.Assert.assertEquals;
 
+import java.nio.file.Paths;
 import java.util.Date;
 
 import org.junit.Test;
@@ -24,8 +25,13 @@ public class MetaTest {
 	}
 	
 	@Test
+	public void testResolve() throws Exception {
+		assertEquals("/home/someone/Pictures/2018/08/2018-08-22_11-57-17.jpg.xmp", Paths.get(Paths.get("/home/someone/Pictures/2018/08/2018-08-22_11-57-17.jpg")+".xmp").toString());
+	}
+	
+	@Test
 	public void meta() throws Exception {
-		assertEquals("27 Mar 2016 13:06:45 GMT",getDate(get("src/test/resources/_MM03592.jpg")).toGMTString());
+		assertEquals("27 Mar 2016 13:06:45 GMT",getDate(get("src/test/resources/_MM03592.thumb.jpg")).toGMTString());
 		assertEquals("27 Mar 2016 13:06:45 GMT",getDate(get("src/test/resources/_MM03592.NEF")).toGMTString());
 		assertEquals("24 Aug 2019 19:19:24 GMT",getDate(get("src/test/resources/20190824_191924.dng")).toGMTString());
 	}

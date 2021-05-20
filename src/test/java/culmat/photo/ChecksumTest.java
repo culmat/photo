@@ -10,7 +10,12 @@ public class ChecksumTest {
 
 		@Test
 		public void testHashJPG() throws Exception {
-			assertEquals("dfdaf7525731696fcbea3d32d1c48380a001d0e4", hash(get("src/test/resources/_MM03592.jpg")));
+			assertEquals("6d05d9f6e44d9b6f3f5ce743078dcbb99fbd0fd0", hash(get("src/test/resources/_MM03592.thumb.jpg")));
+		}
+		
+		@Test
+		public void testHashJPGPano() throws Exception {
+			assertEquals("37a6cc84a19fee24f0a1428eef4e6822e95b20e0", hash(get("src/test/resources/2017-09-24_15-42-42.jpg")));
 		}
 		@Test
 		public void testHashNEF() throws Exception {
