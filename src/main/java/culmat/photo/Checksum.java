@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.imaging.ImageFormats;
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
@@ -47,20 +46,7 @@ public class Checksum {
 		switch (Photo.getExtension(path)) {
 		case "dng":
 		case "nef":
-			Process proc = new ProcessBuilder("dcraw", "-d", "-j", "-t", "0,", "-c",
-					path.toAbsolutePath().normalize().toString()).start();
-			final List<String> sha = new ArrayList<>(1);
-			new Thread(() -> {
-				try {
-					sha.add(DigestUtils.sha1Hex(proc.getInputStream()));
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}).run();
-			try {
-				proc.waitFor();
-			} catch (InterruptedException letsgo) {}
-			return sha.get(0);
+			return hashDCRawOutput(path, "-d", "-j", "-t", "0,");
 		default:
 			try {
 				return sha1Hex(writeImageToBytes(getBufferedImage(path.toFile()), ImageFormats.BMP, new HashMap<>()));
@@ -68,6 +54,38 @@ public class Checksum {
 				throw new IOException(e);
 			}
 		}
+	}
+
+
+
+	public static String hashThumb(Path path) throws IOException {
+		return hashDCRawOutput(path, "-e");
+	}
+
+
+
+	public static String hashDCRawOutput(Path path, String ... opts) throws IOException {
+		if(!HAS_DCRAW) throw new IllegalStateException("dcraw is needed for thumb extraction");
+		
+		List<String> cmd = new ArrayList<>(opts.length+2);
+		cmd.add("dcraw");
+		cmd.addAll(asList(opts));
+		cmd.add("-c");
+		cmd.add(path.toAbsolutePath().normalize().toString());
+		
+		Process proc = new ProcessBuilder(cmd).start();
+		final List<String> sha = new ArrayList<>(1);
+		new Thread(() -> {
+			try {
+				sha.add(sha1Hex(proc.getInputStream()));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}).run();
+		try {
+			proc.waitFor();
+		} catch (InterruptedException letsgo) {}
+		return sha.get(0);
 	}
 
 }

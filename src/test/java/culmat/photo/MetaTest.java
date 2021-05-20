@@ -19,6 +19,7 @@ public class MetaTest {
 	
 	@Test
 	public void testGetDateFromFileName() throws Exception {
+		assertDate("20170729161948", getDateFromFileName("2017-07-29_16-19-48.jpg"));
 		assertDate("20131223133454", getDateFromFileName("2013-12-23_13-34-54.jpg"));
 		assertDate("20131223143454", getDateFromFileName("20131223.14:34:54.nef"));
 		assertDate("20181123173152", getDateFromFileName("20181123_173152(0).jpg"));

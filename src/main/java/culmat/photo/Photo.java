@@ -3,6 +3,7 @@ package culmat.photo;
 import static java.lang.String.format;
 import static java.nio.file.Files.isSymbolicLink;
 import static java.nio.file.Files.walk;
+import static java.util.Arrays.asList;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -11,9 +12,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+
+import javax.swing.SwingWorker;
 
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -32,6 +36,23 @@ public class Photo implements Consumer<Path> {
 	private boolean symlink;
 	@Option(name = "-dryrun", handler = BooleanOptionHandler.class)
 	private boolean dryrun;
+	@Option(name = "-hash", handler = BooleanOptionHandler.class)
+	private boolean hash;
+	
+	public static final Set<String> ALL_EXTENSIONS = new TreeSet<>(asList("jpg", "jpeg", "dng", "nef"));
+	
+	static class Task {
+		final Path path; 
+		final String extension;
+		final Date date;
+		
+		public Task(Path path, String extension, Date date) {
+			this.path = path;
+			this.extension = extension;
+			this.date = date;
+		}
+		
+	}
 	
 	Set<File> directories = new TreeSet<>((File f1, File f2) -> {	
 		String p1 = f2.getAbsolutePath();
@@ -40,6 +61,8 @@ public class Photo implements Consumer<Path> {
 		if(ret == 0) ret = p1.compareTo(p2);
 		return ret;
 	});
+	
+	LinkedList<Task> tasks = new LinkedList<>();
 
 	public Photo checkParams() throws FileNotFoundException {
 		checkPathExists(input);
@@ -70,13 +93,31 @@ public class Photo implements Consumer<Path> {
 
 	private void iterate() throws IOException {
 		walk(input).forEach(this);
-		for (File dir: directories) {
-			System.out.println(dir);
-			if(dir.exists() && dir.list().length == 0) {
-				System.out.println("removing empty dir "+ dir);
-				dir.delete();
+		final int totalTasks = tasks.size();
+		ProgressBar.showProgress(new SwingWorker<Void, Void>() {
+
+			@Override
+			protected Void doInBackground() throws Exception {
+				while (!tasks.isEmpty()) {
+					Task task = tasks.pop();
+					move(task);
+					setProgress((totalTasks-tasks.size())*100/totalTasks);
+				}
+				return null;
 			}
-		}
+			
+			@Override
+			protected void done() {
+				for (File dir: directories) {
+					System.out.println(dir);
+					if(dir.exists() && dir.list().length == 0) {
+						System.out.println("removing empty dir "+ dir);
+						dir.delete();
+					}
+				}
+			}
+		}, "Progress");
+		
 	}
 	
 
@@ -96,7 +137,7 @@ public class Photo implements Consumer<Path> {
 				return;
 			}
 			String extension = getExtension(path);
-			if (path.getFileName().startsWith("._") || !Checksum.EXTENSIONS.contains(extension)) {
+			if (path.getFileName().startsWith("._") || !canHandleExtension(extension)) {
 				System.out.println("Ignoring " + path);
 				return;
 			}
@@ -106,22 +147,40 @@ public class Photo implements Consumer<Path> {
 				System.err.println("Could not determine date. skipping");
 				return;
 			}
+			tasks.add(new Task(path, extension, date));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-			Path dest = output.resolve(DateHelper.getPath(date) + "."+extension);
+	}
+
+	public boolean canHandleExtension(String extension) {
+		return (hash && Checksum.EXTENSIONS.contains(extension)) || ALL_EXTENSIONS.contains(extension);
+	}
+
+	public void move(Task task) {
+		try {
+			Path dest = output.resolve(DateHelper.getPath(task.date) + "."+task.extension);
 			mkdirs(dest.getParent());
-			Path resolvedPath = resolveSymbolicLink(path);
-			String hash = Checksum.hash(resolvedPath);
-			Path hashPath = output.resolve("_hashes/"+hash.substring(0, 2)+"/"+hash);
-			if(hashPath.toFile().exists()) {
+			Path resolvedPath = resolveSymbolicLink(task.path);
+			String hash = null;
+			Path hashPath = null;
+			if(this.hash) {
+				hash = Checksum.hash(resolvedPath);
+				hashPath = output.resolve("_hashes/"+hash.substring(0, 2)+"/"+hash);
+			}
+			if(this.hash && hashPath.toFile().exists()) {
 				System.out.println(hashPath + " exists pointing to " + Files.readString(hashPath));
 				delete(resolvedPath);
 			} else {
 				dest = adapt(dest);
 				move(resolvedPath, dest);
-				mkdirs(hashPath.getParent());
-				Files.writeString(hashPath,dest.toString().replace(output.toString(),""));
+				if(this.hash) {
+					mkdirs(hashPath.getParent());
+					Files.writeString(hashPath,dest.toString().replace(output.toString(),""));
+				}
 			}
-			Path xmpPath = resolveSymbolicLink(Paths.get(path+".xmp"));
+			Path xmpPath = resolveSymbolicLink(Paths.get(task.path+".xmp"));
 			File xmpFile = xmpPath.toFile();
 			File xmpFileDest = Paths.get(dest+".xmp").toFile();
 			if(xmpFile.exists()) {
@@ -132,20 +191,20 @@ public class Photo implements Consumer<Path> {
 				}				
 			}
 			if (symlink)
-				Files.createSymbolicLink(path, dest);
-
+				Files.createSymbolicLink(task.path, dest);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
+		
 	}
-
+	
 	private void move(Path source, Path target) throws IOException {
 		if (dryrun) {
 			System.out.print("dryrun: ");
 		} 
 		System.out.println(format("moving %s to %s", source, target));
-	    Files.move(source, target);
+		Files.move(source, target);
 	}
 	
 	private void mkdirs(Path path) throws IOException {
@@ -184,7 +243,7 @@ public class Photo implements Consumer<Path> {
 		final String trunc = pathString.substring(0, pathString.length()- extension.length()-1);
 		int i = 1;
 		while (path.toFile().exists()) {
-			path = Paths.get(trunc + "_" + (i++) + "."+ extension);
+			path = Paths.get(trunc + "_A" + (i++) + "."+ extension);
 		} 
 		return path;
 	}

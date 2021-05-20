@@ -6,8 +6,11 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,31 +35,47 @@ public class Meta {
 	}
 
 	public static String extractDateString(String string) {
-		return string.replaceAll("\\D+", "").substring(0, Math.min(string.length(), 14));
+		string = string.replaceAll("\\D+", "");
+		return string.substring(0, Math.min(string.length(), 14));
 	}
 	
 	public static Date getDate(final Path path) throws IOException {
 		try {
-			ImageMetadata metadata = Imaging.getMetadata(path.toFile());
-			if(metadata == null) return null;
-			Map<String, String> meta = metadata.getItems().stream().map(i -> i.toString().split(": ", 2))
-					.collect(Collectors.toMap(t -> t[0], t -> t[1], (v1,v2)->v1));
-			String date = meta
-					.getOrDefault("DateTime", meta.getOrDefault("DateTimeOriginal", meta.get("DateTimeDigitized")))
-					.replace("'", "");
-			return date == null ? null : com_drew_metadata_Directory.getDate(date);
+			String date = null;
+			String subSecond = null;
+			Map<String, String> meta = load(path);
+			if(!meta.isEmpty()) {
+				Optional<Entry<String, String>> entry = meta.entrySet().stream().filter(e -> e.getKey().toLowerCase().startsWith("datetime"))
+						.findAny();
+				if (entry.isPresent()) {
+					date = entry.get().getValue().replace("'", "");
+					entry = meta.entrySet().stream().filter(e -> e.getKey().toLowerCase().startsWith("subsec"))
+							.findAny();
+					if (entry.isPresent()) {
+						subSecond = entry.get().getValue().replace("'", "");
+					}
+				}
+			}
+			return date == null ? getDateFromFileName(path.getFileName().toString()) : com_drew_metadata_Directory.getDate(date, subSecond);
 		} catch (ImageReadException e) {
 			throw new IOException(e);
 		}
 	}
 
-	private static class com_drew_metadata_Directory{
+	public static Map<String, String> load(final Path path) throws ImageReadException, IOException {
+		ImageMetadata metadata = Imaging.getMetadata(path.toFile());
+		return metadata == null ? 
+				Collections.emptyMap() : 
+					metadata.getItems().stream().map(i -> i.toString().split(": ", 2))
+						.collect(Collectors.toMap(t -> t[0], t -> t[1], (v1,v2)->v1));
+	}
+
+	static class com_drew_metadata_Directory{
 		/**
 		 * as of
 		 * https://github.com/drewnoakes/metadata-extractor/blob/master/Source/com/drew/metadata/Directory.java#L862
 		 */
-		public static java.util.Date getDate(String dateString) {
-			String subsecond = null;
+		public static java.util.Date getDate(String dateString, String subsecond) {
 			TimeZone timeZone = null;
 
 			java.util.Date date = null;
@@ -110,7 +129,8 @@ public class Meta {
 				return date;
 
 			try {
-				int millisecond = (int) (Double.parseDouble("." + subsecond) * 1000);
+				
+				int millisecond = parseMillies(subsecond);
 				if (millisecond >= 0 && millisecond < 1000) {
 					Calendar calendar = Calendar.getInstance();
 					calendar.setTime(date);
@@ -121,6 +141,17 @@ public class Meta {
 			} catch (NumberFormatException e) {
 				return date;
 			}
+		}
+
+		private static int parseMillies(String subsecond) {
+			StringBuilder sb = new StringBuilder(subsecond);
+			while (sb.charAt(0) == '0') {
+				sb.deleteCharAt(0);
+			}
+			while (sb.length()<3) {
+				sb.append('0');
+			}
+			return Integer.valueOf(sb.toString());
 		}
 	}
 

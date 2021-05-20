@@ -1,6 +1,7 @@
 package culmat.photo;
 
 import static culmat.photo.Checksum.hash;
+import static culmat.photo.Checksum.hashThumb;
 import static java.nio.file.Paths.get;
 import static org.junit.Assert.assertEquals;
 
@@ -22,6 +23,15 @@ public class ChecksumTest {
 			if(!Checksum.HAS_DCRAW) return;
 			assertEquals("4d1bc98fee340b165bcfe5fa60926039b905cbae", hash(get("src/test/resources/_MM03592.NEF")));
 		}
+		
+		@Test
+		public void testHashNefThumb() throws Exception {
+			if(!Checksum.HAS_DCRAW) return;
+			String expected = "43f492118f06f306f2c8d36c16b545c5b8fd699a";
+			assertEquals(expected, hashThumb(get("src/test/resources/2015-09-27_11-55-02.nef")));
+			assertEquals("9916bd8c327bac14b83d666a2ba984353ca7315d", hash(get("src/test/resources/2015-09-27_11-55-02_1.jpg")));
+		}
+		
 		@Test
 		public void testHashDNG() throws Exception {
 			if(!Checksum.HAS_DCRAW) return;
