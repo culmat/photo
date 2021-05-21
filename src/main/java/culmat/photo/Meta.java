@@ -20,7 +20,6 @@ import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.common.ImageMetadata;
 
-
 public class Meta {
 
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmmss");
@@ -38,39 +37,39 @@ public class Meta {
 		string = string.replaceAll("\\D+", "");
 		return string.substring(0, Math.min(string.length(), 14));
 	}
-	
+
 	public static Date getDate(final Path path) throws IOException {
-		try {
 			String date = null;
 			String subSecond = null;
 			Map<String, String> meta = load(path);
-			if(!meta.isEmpty()) {
-				Optional<Entry<String, String>> entry = meta.entrySet().stream().filter(e -> e.getKey().toLowerCase().startsWith("datetime"))
-						.findAny();
+			if (!meta.isEmpty()) {
+				Optional<Entry<String, String>> entry = meta.entrySet().stream()
+						.filter(e -> e.getKey().toLowerCase().startsWith("datetime")).findAny();
 				if (entry.isPresent()) {
 					date = entry.get().getValue().replace("'", "");
-					entry = meta.entrySet().stream().filter(e -> e.getKey().toLowerCase().startsWith("subsec"))
-							.findAny();
+					entry = meta.entrySet().stream().filter(e -> e.getKey().toLowerCase().startsWith("subsec")
+							&& !e.getValue().replace("'", "").trim().isEmpty()).findAny();
 					if (entry.isPresent()) {
 						subSecond = entry.get().getValue().replace("'", "");
 					}
 				}
 			}
-			return date == null ? getDateFromFileName(path.getFileName().toString()) : com_drew_metadata_Directory.getDate(date, subSecond);
+			return date == null ? getDateFromFileName(path.getFileName().toString())
+					: com_drew_metadata_Directory.getDate(date, subSecond);
+	}
+
+	public static Map<String, String> load(final Path path) throws IOException {
+		try {
+		ImageMetadata metadata = Imaging.getMetadata(path.toFile());
+		return metadata == null ? Collections.emptyMap()
+				: metadata.getItems().stream().map(i -> i.toString().split(": ", 2))
+						.collect(Collectors.toMap(t -> t[0], t -> t[1], (v1, v2) -> v1));
 		} catch (ImageReadException e) {
 			throw new IOException(e);
 		}
 	}
 
-	public static Map<String, String> load(final Path path) throws ImageReadException, IOException {
-		ImageMetadata metadata = Imaging.getMetadata(path.toFile());
-		return metadata == null ? 
-				Collections.emptyMap() : 
-					metadata.getItems().stream().map(i -> i.toString().split(": ", 2))
-						.collect(Collectors.toMap(t -> t[0], t -> t[1], (v1,v2)->v1));
-	}
-
-	static class com_drew_metadata_Directory{
+	static class com_drew_metadata_Directory {
 		/**
 		 * as of
 		 * https://github.com/drewnoakes/metadata-extractor/blob/master/Source/com/drew/metadata/Directory.java#L862
@@ -84,9 +83,9 @@ public class Meta {
 			// Note that " : : : : " is a valid date string according to the Exif spec
 			// (which means 'unknown date'):
 			// http://www.awaresystems.be/imaging/tiff/tifftags/privateifd/exif/datetimeoriginal.html
-			String datePatterns[] = { "yyyy:MM:dd HH:mm:ss", "yyyy:MM:dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm",
-					"yyyy.MM.dd HH:mm:ss", "yyyy.MM.dd HH:mm", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd",
-					"yyyy-MM", "yyyyMMdd", // as used in IPTC data
+			String datePatterns[] = { "yyyy:MM:dd HH:mm:ss", "yyyy:MM:dd HH:mm", "yyyy-MM-dd HH:mm:ss",
+					"yyyy-MM-dd HH:mm", "yyyy.MM.dd HH:mm:ss", "yyyy.MM.dd HH:mm", "yyyy-MM-dd'T'HH:mm:ss",
+					"yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd", "yyyy-MM", "yyyyMMdd", // as used in IPTC data
 					"yyyy" };
 
 			// if the date string has subsecond information, it supersedes the subsecond
@@ -129,7 +128,7 @@ public class Meta {
 				return date;
 
 			try {
-				
+
 				int millisecond = parseMillies(subsecond);
 				if (millisecond >= 0 && millisecond < 1000) {
 					Calendar calendar = Calendar.getInstance();
@@ -143,15 +142,27 @@ public class Meta {
 			}
 		}
 
-		private static int parseMillies(String subsecond) {
-			StringBuilder sb = new StringBuilder(subsecond);
-			while (sb.charAt(0) == '0') {
-				sb.deleteCharAt(0);
+		private static int parseMillies(final String subsecond) {
+			final String subDigits = subsecond.replaceAll("\\D+", "");
+			return Integer.valueOf(switch (subDigits.length()) {
+			case 1: {
+				yield subDigits+"00";
+				
 			}
-			while (sb.length()<3) {
-				sb.append('0');
+			case 2: {
+				yield subDigits+"0";
+
 			}
-			return Integer.valueOf(sb.toString());
+			case 3: {
+				yield subDigits;
+				
+			}
+			case 4: {
+				yield subDigits.substring(1);
+			}
+			default:
+				throw new IllegalArgumentException("Unexpected subsecond: " + subDigits);
+			});
 		}
 	}
 
