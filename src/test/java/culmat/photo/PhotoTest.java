@@ -7,23 +7,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Iterator;
-
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
 
 import org.junit.Test;
 
 public class PhotoTest {
 
-	@Test
-	public void testDEcoder() throws Exception {
-		Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("JPG");
-		while (readers.hasNext()) {
-		    System.out.println("reader: " + readers.next());
-		}
-	}
-	
 	@Test
 	public void testGetExtension() throws Exception {
 		assertEquals("jpg", Photo.getExtension(Paths.get("aa.JPG")));
