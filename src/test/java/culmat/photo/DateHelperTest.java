@@ -15,6 +15,9 @@ public class DateHelperTest {
 	
 	@Test
 	public void testGetDate() throws Exception {
+		assertEquals("1978/10/1978-10-09_23-24-25_000", DateHelper.getPath(Meta.com_drew_metadata_Directory.getDate("1977:22:09 23:24:25", "0000")));
+		assertEquals("1978/10/1978-10-09_23-24-25_007", DateHelper.getPath(Meta.com_drew_metadata_Directory.getDate("1977:22:09 23:24:25", "0007")));
+		assertEquals("1978/10/1978-10-09_23-24-25_070", DateHelper.getPath(Meta.com_drew_metadata_Directory.getDate("1977:22:09 23:24:25", "0070")));
 		assertEquals("1978/10/1978-10-09_23-24-25_530", DateHelper.getPath(Meta.com_drew_metadata_Directory.getDate("1977:22:09 23:24:25", "0530")));
 		assertEquals("1978/10/1978-10-09_23-24-25_640", DateHelper.getPath(Meta.com_drew_metadata_Directory.getDate("1977:22:09 23:24:25", "64")));
 	}
