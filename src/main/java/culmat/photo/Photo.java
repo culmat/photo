@@ -1,11 +1,11 @@
 package culmat.photo;
 
 import static java.lang.String.format;
+import static java.nio.file.Files.getLastModifiedTime;
 import static java.nio.file.Files.isSymbolicLink;
 import static java.nio.file.Files.walk;
 import static java.util.Arrays.asList;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,6 +38,8 @@ public class Photo implements Consumer<Path> {
 	private boolean dryrun;
 	@Option(name = "-hash", handler = BooleanOptionHandler.class)
 	private boolean hash;
+	@Option(name = "-trash", handler = BooleanOptionHandler.class)
+	private boolean trash = true;
 	
 	public static final Set<String> ALL_EXTENSIONS = new TreeSet<>(asList("jpg", "jpeg", "dng", "nef"));
 	
@@ -54,9 +56,9 @@ public class Photo implements Consumer<Path> {
 		
 	}
 	
-	Set<File> directories = new TreeSet<>((File f1, File f2) -> {	
-		String p1 = f2.getAbsolutePath();
-		String p2 = f1.getAbsolutePath();
+	Set<Path> directories = new TreeSet<>((Path f1, Path f2) -> {	
+		String p1 = f2.toAbsolutePath().normalize().toString();
+		String p2 = f1.toAbsolutePath().normalize().toString();
 		int ret = Integer.compare(p1.length(), p2.length());
 		if(ret == 0) ret = p1.compareTo(p2);
 		return ret;
@@ -71,7 +73,7 @@ public class Photo implements Consumer<Path> {
 	}
 
 	private void checkPathExists(Path path) throws FileNotFoundException {
-		if (!path.toFile().exists()) {
+		if (!Files.exists(path)) {
 			throw new FileNotFoundException(path.toString());
 		}
 	}
@@ -92,6 +94,7 @@ public class Photo implements Consumer<Path> {
 	}
 
 	private void iterate() throws IOException {
+		System.out.println("hashing enabled: "+hash);
 		walk(input).forEach(this);
 		final int totalTasks = tasks.size();
 		ProgressBar.showProgress(new SwingWorker<Void, Void>() {
@@ -108,11 +111,15 @@ public class Photo implements Consumer<Path> {
 			
 			@Override
 			protected void done() {
-				for (File dir: directories) {
-					System.out.println(dir);
-					if(dir.exists() && dir.list().length == 0) {
-						System.out.println("removing empty dir "+ dir);
-						dir.delete();
+				for (Path dir : directories) {
+					try {
+						System.out.println(dir);
+						if (Files.exists(dir) && Files.list(dir).findAny().isEmpty()) {
+							System.out.println("removing empty dir " + dir);
+							delete(dir);
+						}
+					} catch (IOException e) {
+						System.err.println(e.getMessage());
 					}
 				}
 			}
@@ -132,8 +139,8 @@ public class Photo implements Consumer<Path> {
 				System.out.println("Skipping output directory "+output.toAbsolutePath().normalize());
 				return;
 			}
-			if(path.toFile().isDirectory()) {
-				directories.add(path.toAbsolutePath().normalize().toFile());
+			if(Files.isDirectory(path)) {
+				directories.add(path.toAbsolutePath().normalize());
 				return;
 			}
 			String extension = getExtension(path);
@@ -169,25 +176,26 @@ public class Photo implements Consumer<Path> {
 				hash = Checksum.hash(resolvedPath);
 				hashPath = output.resolve("_hashes/"+hash.substring(0, 2)+"/"+hash);
 			}
-			if(this.hash && hashPath.toFile().exists()) {
+			if(this.hash && Files.exists(hashPath)) {
 				System.out.println(hashPath + " exists pointing to " + Files.readString(hashPath));
 				delete(resolvedPath);
 			} else {
-				dest = adapt(dest);
-				move(resolvedPath, dest);
-				if(this.hash) {
+				if(!this.hash && !Compare.equal(resolvedPath, dest)) {					
+					dest = adapt(dest);
+					move(resolvedPath, dest);
+				}
+				if(this.hash && !dryrun) {
 					mkdirs(hashPath.getParent());
 					Files.writeString(hashPath,dest.toString().replace(output.toString(),""));
 				}
 			}
 			Path xmpPath = resolveSymbolicLink(Paths.get(task.path+".xmp"));
-			File xmpFile = xmpPath.toFile();
-			File xmpFileDest = Paths.get(dest+".xmp").toFile();
-			if(xmpFile.exists()) {
-				if((!xmpFileDest.exists() ||xmpFile.lastModified() > xmpFileDest.lastModified() )) {
-					move(xmpPath, xmpFileDest.toPath());
+			Path xmpPathDest = Paths.get(dest+".xmp");
+			if(Files.exists(xmpPath)) {
+				if((!Files.exists(xmpPathDest) ||getLastModifiedTime(xmpPath).compareTo(getLastModifiedTime(xmpPathDest)) > 0)) {
+					move(xmpPath, xmpPathDest);
 				} else {
-					xmpFile.delete();
+					delete(xmpPath);
 				}				
 			}
 			if (symlink)
@@ -215,11 +223,16 @@ public class Photo implements Consumer<Path> {
 		}
 	}
 	
-	private void delete(Path path) {
+	private void delete(Path path) throws IOException {
 		if (dryrun) {
 			System.out.println(format("dryrun: deleting %s", path));
+		} else if(trash){
+			Path trashPath = input.getParent().resolve("trash").resolve(path.toString().replace(input.toString(), ""));
+			System.out.println(format("trashing to %s", trashPath));
+			mkdirs(trashPath.getParent());
+			Files.move(path, trashPath);
 		} else {
-			path.toFile().delete();
+			Files.delete(path);
 		}
 	}
 
@@ -233,16 +246,12 @@ public class Photo implements Consumer<Path> {
 	}
 
 
-	/**
-	 * @param path
-	 * @return
-	 */
 	static Path adapt(Path path) {
 		final String extension = getExtension(path);
 		final String pathString = path.toString();
 		final String trunc = pathString.substring(0, pathString.length()- extension.length()-1);
 		int i = 1;
-		while (path.toFile().exists()) {
+		while (Files.exists(path)) {
 			path = Paths.get(trunc + "_A" + (i++) + "."+ extension);
 		} 
 		return path;
